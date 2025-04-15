@@ -1,9 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import './ProductList.css'
 import CartItem from './CartItem';
+import { useDispatch, useSelector } from 'react-redux';
+import { addItem } from './CartSlice';
+
 function ProductList({ onHomeClick }) {
+    const dispatch = useDispatch();
+    const cart = useSelector(state => state.cart.items);
     const [showCart, setShowCart] = useState(false);
     const [showPlants, setShowPlants] = useState(false); // State to control the visibility of the About Us page
+    const [addedItems, setAddedItems] = useState({}); // Track recently added items for UI feedback
+
+    // Calculate total quantity of items in the cart
+    const getTotalCartItems = () => {
+        return cart.reduce((total, item) => total + item.quantity, 0);
+    };
+
+    // Reset the added item feedback after a delay
+    useEffect(() => {
+        const timers = Object.keys(addedItems).map(name => {
+            return setTimeout(() => {
+                setAddedItems(prev => {
+                    const newState = { ...prev };
+                    delete newState[name];
+                    return newState;
+                });
+            }, 2000); // Reset after 2 seconds
+        });
+
+        return () => {
+            timers.forEach(timer => clearTimeout(timer));
+        };
+    }, [addedItems]);
 
     const plantsArray = [
         {
@@ -233,6 +261,20 @@ function ProductList({ onHomeClick }) {
         textDecoration: 'none',
     }
 
+    const handleAddToCart = (plant) => {
+        dispatch(addItem({
+            name: plant.name,
+            image: plant.image,
+            cost: plant.cost
+        }));
+
+        // Set the item as recently added for UI feedback
+        setAddedItems(prev => ({
+            ...prev,
+            [plant.name]: true
+        }));
+    };
+
     const handleHomeClick = (e) => {
         e.preventDefault();
         onHomeClick();
@@ -252,6 +294,13 @@ function ProductList({ onHomeClick }) {
         e.preventDefault();
         setShowCart(false);
     };
+
+    // Get quantity of specific item in cart
+    const getItemQuantity = (plantName) => {
+        const item = cart.find(item => item.name === plantName);
+        return item ? item.quantity : 0;
+    };
+
     return (
         <div>
             <div className="navbar" style={styleObj}>
@@ -269,13 +318,77 @@ function ProductList({ onHomeClick }) {
                 </div>
                 <div style={styleObjUl}>
                     <div> <a href="#" onClick={(e) => handlePlantsClick(e)} style={styleA}>Plants</a></div>
-                    <div> <a href="#" onClick={(e) => handleCartClick(e)} style={styleA}><h1 className='cart'><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" id="IconChangeColor" height="68" width="68"><rect width="156" height="156" fill="none"></rect><circle cx="80" cy="216" r="12"></circle><circle cx="184" cy="216" r="12"></circle><path d="M42.3,72H221.7l-26.4,92.4A15.9,15.9,0,0,1,179.9,176H84.1a15.9,15.9,0,0,1-15.4-11.6L32.5,37.8A8,8,0,0,0,24.8,32H8" fill="none" stroke="#faf9f9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" id="mainIconPathAttribute"></path></svg></h1></a></div>
+                    <div>
+                        <a href="#" onClick={(e) => handleCartClick(e)} style={styleA}>
+                            <div className="cart-icon-container">
+                                <h1 className='cart'>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" id="IconChangeColor" height="68" width="68">
+                                        <rect width="156" height="156" fill="none"></rect>
+                                        <circle cx="80" cy="216" r="12"></circle>
+                                        <circle cx="184" cy="216" r="12"></circle>
+                                        <path d="M42.3,72H221.7l-26.4,92.4A15.9,15.9,0,0,1,179.9,176H84.1a15.9,15.9,0,0,1-15.4-11.6L32.5,37.8A8,8,0,0,0,24.8,32H8" fill="none" stroke="#faf9f9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" id="mainIconPathAttribute"></path>
+                                    </svg>
+                                </h1>
+                                {getTotalCartItems() > 0 && (
+                                    <span className="cart_quantity_count">{getTotalCartItems()}</span>
+                                )}
+                            </div>
+                        </a>
+                    </div>
                 </div>
             </div>
             {!showCart ? (
                 <div className="product-grid">
-
-
+                    {plantsArray.map((category, index) => (
+                        <div key={index}>
+                            <div className="category-container" style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                margin: '20px 0',
+                                width: '100%'
+                            }}>
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '10px 0',
+                                    borderTop: '1px solid black',
+                                    borderBottom: '1px solid black',
+                                    width: '50%',
+                                }}>
+                                    <h2>{category.category}</h2>
+                                </div>
+                            </div>
+                            <div className="product-list">
+                                {category.plants.map((plant, plantIndex) => (
+                                    <div className="product-card" key={plantIndex}>
+                                        <div className="sale-tag" style={{
+                                            position: 'absolute',
+                                            top: '0',
+                                            right: '0',
+                                            backgroundColor: '#e74c3c',
+                                            color: 'white',
+                                            padding: '5px 10px',
+                                            fontWeight: 'bold',
+                                            zIndex: '1'
+                                        }}>
+                                            SALE
+                                        </div>
+                                        <img className="product-image" src={plant.image} alt={plant.name} />
+                                        <div className="product-title">{plant.name}</div>
+                                        <div className="product-description">{plant.description}</div>
+                                        <div className="product-cost">{plant.cost}</div>
+                                        <button
+                                            className={`product-button ${addedItems[plant.name] || getItemQuantity(plant.name) > 0 ? 'added-to-cart' : ''}`}
+                                            onClick={() => handleAddToCart(plant)}
+                                            disabled={addedItems[plant.name] || getItemQuantity(plant.name) > 0}
+                                        >
+                                            {addedItems[plant.name] || getItemQuantity(plant.name) > 0 ? 'Added to Cart' : 'Add to Cart'}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             ) : (
                 <CartItem onContinueShopping={handleContinueShopping} />
